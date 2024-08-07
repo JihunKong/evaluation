@@ -1,12 +1,9 @@
 import streamlit as st
-import nltk
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-import re
+from openai import OpenAI
+import os
 
-# NLTK 데이터 다운로드
-nltk.download('punkt')
-nltk.download('stopwords')
+# OpenAI API 키 설정
+client = OpenAI(api_key=st.secrets["openai_api_key"])
 
 # 평가 기준 및 점수
 evaluation_criteria = {
@@ -26,35 +23,35 @@ evaluation_criteria = {
     }
 }
 
-def evaluate_text(text):
-    # 간단한 평가 로직 (실제 구현에서는 더 복잡한 NLP 기술을 사용할 수 있습니다)
-    words = word_tokenize(text.lower())
-    word_count = len([word for word in words if word not in stopwords.words('english')])
+def evaluate_text_with_gpt(text):
+    prompt = f"""
+    다음은 학생이 작성한 목포시 명소에 대한 안내문입니다. 이 글을 평가하고 점수를 매겨주세요.
+    평가 기준은 다음과 같습니다:
     
-    process_score = 60
-    result_score = 60
+    1. 글로컬 글쓰기의 과정 평가 (60-100점):
+    {evaluation_criteria["글로컬 글쓰기의 과정 평가"]}
     
-    if word_count > 100:
-        process_score = 80
-        result_score = 80
-    if word_count > 200:
-        process_score = 90
-        result_score = 90
-    if word_count > 300 and re.search(r'목포|명소|관광|역사|문화', text):
-        process_score = 100
-        result_score = 100
+    2. 글로컬 글쓰기의 결과물 평가 (60-100점):
+    {evaluation_criteria["글로컬 글쓰기의 결과물 평가"]}
     
-    return process_score, result_score
-
-def get_feedback(score):
-    if score >= 90:
-        return "훌륭한 글입니다! 더 나은 글을 위해 추가적인 세부 정보나 독자의 관심을 끌 수 있는 흥미로운 사실을 포함해보세요."
-    elif score >= 80:
-        return "좋은 글입니다. 목포의 특징을 더 자세히 설명하고, 독자가 방문하고 싶어지도록 설득력 있게 작성해보세요."
-    elif score >= 70:
-        return "기본적인 내용은 잘 작성되었습니다. 목포의 독특한 매력을 더 강조하고, 구체적인 예시를 들어 설명해보세요."
-    else:
-        return "글의 구조와 내용을 더 발전시켜 보세요. 목포의 주요 명소, 역사, 문화적 특징 등을 포함하여 더 풍부한 내용으로 만들어보세요."
+    학생의 글:
+    {text}
+    
+    평가 결과를 다음 형식으로 제공해주세요:
+    글로컬 글쓰기의 과정 평가 점수: [점수]
+    글로컬 글쓰기의 결과물 평가 점수: [점수]
+    피드백: [개선을 위한 구체적인 제안]
+    """
+    
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "당신은 국어 교육 전문가이며, 학생들의 글쓰기를 평가하고 피드백을 제공하는 역할을 합니다."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    
+    return response.choices[0].message.content
 
 st.title("목포시 명소 안내문 작성 및 평가 시스템")
 
@@ -64,16 +61,9 @@ text = st.text_area("안내문 작성", height=300)
 
 if st.button("평가하기"):
     if text:
-        process_score, result_score = evaluate_text(text)
-        
+        evaluation_result = evaluate_text_with_gpt(text)
         st.write("### 평가 결과")
-        st.write(f"글로컬 글쓰기의 과정 평가 점수: {process_score}")
-        st.write(evaluation_criteria["글로컬 글쓰기의 과정 평가"][process_score])
-        st.write(f"글로컬 글쓰기의 결과물 평가 점수: {result_score}")
-        st.write(evaluation_criteria["글로컬 글쓰기의 결과물 평가"][result_score])
-        
-        st.write("### 피드백")
-        st.write(get_feedback(min(process_score, result_score)))
+        st.write(evaluation_result)
     else:
         st.warning("안내문을 작성해주세요.")
 
