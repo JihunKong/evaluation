@@ -3,7 +3,7 @@ from openai import OpenAI
 import os
 
 # OpenAI API 키 설정
-client = OpenAI(api_key=st.secrets["openai_api_key"])
+client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
 # 평가 기준 및 점수
 evaluation_criteria = {
